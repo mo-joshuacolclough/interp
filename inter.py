@@ -10,6 +10,10 @@ def sink(x, y):
 def wavy(x, y):
   return (np.sin(3*x) * np.cos(y) + 1)/2
 
+@np.vectorize
+def f1(x, y):
+  return x*pow(y,3) - y*pow(x,3)
+
 # interp
 def control(xv, yv, zs, xv_sample, yv_sample, size):
   interpfunc = interpolate.interp2d(xv, yv, zs)
@@ -80,8 +84,11 @@ def bilinear(x, y, xv, yv, zs):
 
   return np.dot(weighting, fs)
 
-def bilinear_rand(N, size, focus=np.zeros(2)):
-  samples = (np.random.rand(N, 2) * size) - size*0.5 + focus
+def bilinear_rand(N, bounds):
+  xbound = np.array(bounds[0])
+  ybound = np.array(bounds[1])
+  size = np.array([xbound[1] - xbound[0], ybound[1] - ybound[0]])
+  samples = np.random.rand(N, 2) * size + np.array([xbound[0], ybound[0]])
   for i in range(len(samples)):
     zsampl = bilinear(samples[i][0], samples[i][1], xv, yv, zs)
     col = plasma(zsampl)
@@ -102,8 +109,8 @@ N = len(x)
 vals = []
 zs = np.zeros((len(x), len(y)))
 
-plasma = plt.get_cmap("plasma")
-grscl = plt.get_cmap("viridis")
+plasma = plt.get_cmap("viridis")
+#grscl = plt.get_cmap("viridis")
 
 xv, yv = np.meshgrid(x, y, indexing="ij")
 
@@ -111,7 +118,7 @@ for i in range(N):
   for j in range(N):
     z = FUNC(xv[i,j], yv[i,j])
     col = plasma(z)
-    plt.plot(xv[i,j], yv[i,j], "+", c=col, zorder=1, markersize=10, mew=3)
+    plt.plot(xv[i,j], yv[i,j], "+", c=col, zorder=1, markersize=8, mew=3)
     #plt.plot(xv[i,j], yv[i,j], ".", c=col, zorder=1, markersize=4)
     zs[i,j] = z
 
@@ -119,8 +126,8 @@ xtmp = np.arange(2, 4, 0.1)
 ytmp = np.arange(1, 3, 0.1)
 xv_sample, yv_sample = np.meshgrid(xtmp, ytmp, indexing="ij")
 #control(xv, yv, zs, xv_sample, yv_sample, len(xtmp))
-bilinear_samp(xv, yv, zs, xv_sample, yv_sample, len(xtmp), len(ytmp))
-#bilinear_rand(int(1e4), np.array([3, 2]))
+#bilinear_samp(xv, yv, zs, xv_sample, yv_sample, len(xtmp), len(ytmp))
+bilinear_rand(int(2e4), [(0, 6), (0, 6)])
 
 plt.gca().set_aspect("equal")
 plt.show()
