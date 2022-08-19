@@ -1,0 +1,3 @@
+# Bilinear interpolation
+
+Linear mapping
