@@ -2,3 +2,4 @@ frames/
 output*
 *.sh
 *.swp
+.nfs*
