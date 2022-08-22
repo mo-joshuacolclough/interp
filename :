@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp2d
-from scipy.sparse import csc_matrix
 
 def bilinear_map(X, Y, tX, tY):
   srcNum = len(X) * len(X[0])
@@ -11,11 +10,7 @@ def bilinear_map(X, Y, tX, tY):
   spacingy = Y[1,0] - Y[0,0]
   print("SPACING:", spacingx, spacingy)
 
-  map_shape = (targetNum, srcNum)
-
-  row = []
-  col = []
-  ws = []
+  weighting = np.zeros((targetNum, srcNum))
 
   t_idx = 0
   for j in range(len(tY)):
@@ -44,61 +39,16 @@ def bilinear_map(X, Y, tX, tY):
       ijs = np.array([ ij_start + ijd for ijd in np.array([[0,0], [0,1], [1,0], [1,1]]) ])
 
       #print("ijs:", ijs)
-      #xindices =       #print("XINDICES:", xindices)
+      xindices = np.array([ (ij[1] * len(X[0])) + ij[0] for ij in ijs ])
+      #print("XINDICES:", xindices)
 
-      for ii, xx in enumerate(np.array([ (ij[1] * len(X[0])) + ij[0] for ij in ijs ])):
-        row.append(t_idx)
-        col.append(xx)
-        #weighting[t_idx, xx] = w[ii]
-        ws.append(w[ii])
+      weighting[t_idx, xindices] = w
 
       t_idx += 1
 
 
-  ws = np.array(ws)
-  row = np.array(row)
-  col = np.array(col)
   
-  return csc_matrix((ws, (row, col)), shape=map_shape)
-
-
-def compare_with_control(x1d, y1d, zs, tX1d, tY1d, tX, tY, tZ):
-  cont = interp2d(x1d, y1d, zs)
-  Zcontrol = cont(tX1d, tY1d)
-
-  plt.pcolormesh(tX, tY, Zcontrol, cmap="plasma", vmin=0, vmax=1, zorder=10)
-  plt.title("CONTROL")
-  plt.gca().set_aspect("equal")
-  plt.show()
-
-  tZ2d = twoD(zmapped, (len(tX), len(tX[0])))
-  diff = Zcontrol - tZ2d
-
-  plt.pcolormesh(tX, tY, diff, cmap="plasma", zorder=10)
-  plt.colorbar()
-  plt.title("$\Delta$")
-
-  plt.gca().set_aspect("equal")
-  plt.show()
-
-def compare_with_real(func, tX1d, tY1d, tX, tY, tZ):
-  Zcontrol = func(tX, tY)
-
-  plt.pcolormesh(tX, tY, Zcontrol, cmap="plasma", vmin=0, vmax=1, zorder=10)
-  plt.title("REAL")
-  plt.gca().set_aspect("equal")
-  plt.show()
-
-  tZ2d = twoD(zmapped, (len(tX), len(tX[0])))
-  diff = Zcontrol - tZ2d
-
-  plt.pcolormesh(tX, tY, diff, cmap="plasma", zorder=10)
-  plt.colorbar()
-  plt.title("$\Delta$real")
-
-  plt.gca().set_aspect("equal")
-  plt.show()
-
+  return weighting
 
 def get_z(func, X, Y):
   z = []
@@ -107,17 +57,6 @@ def get_z(func, X, Y):
       z.append(func(X[j,i], Y[j,i]))
 
   return np.array(z, dtype=float)
-
-def oneD(twoD):
-  assert len(twoD.shape) == 2
-
-  out = np.zeros(twoD.shape[0] * twoD.shape[1])
-  for j in range(twoD.shape[1]):
-    for i in range(twoD.shape[0]):
-      out[j * twoD.shape[0] + i] = twoD[j][i]
-  
-  return out
-
 
 def twoD(oneD, shape):
   assert shape[0] * shape[1] == len(oneD)
@@ -136,31 +75,26 @@ def sink(x, y):
   return x*x + y*y
 
 def wave(x, y):
-  Wfac = 6
-  return (np.sin(x * Wfac) * np.sin(y * Wfac) + 1)/2
-
-def waveplus(x, y):
-  Wfac = 6
-  return (np.sin(x*y * Wfac) * np.sin(y * Wfac) + 1)/2
+  return (np.sin(x) * np.sin(y) + 1)/2
 
 def ripple(x, y):
   rsqrd = x*x + y*y
   return np.exp(-np.sqrt(rsqrd)/2) * (np.cos(rsqrd * 2) + 1) / 2
 
 
-RESOLUTION = 0.05
-x1d = y1d = np.arange(0, 4, RESOLUTION)
-X, Y = np.meshgrid(x1d, y1d)
+RESOLUTION = 2.0
+space = np.arange(0, 4, RESOLUTION)
+print("LEN SPACE:", len(space))
+X, Y = np.meshgrid(space, space)
 
 cmap = plt.get_cmap("plasma")
 
-F = ripple
-Z = F(X, Y)
+Z = ripple(X, Y)
 plt.pcolormesh(X, Y, Z, cmap="plasma", vmin=0.0, vmax=1.0)
 plt.gca().set_aspect("equal")
 plt.show()
 
-z = get_z(F, X, Y)
+z = get_z(ripple, X, Y)
 cols = cmap(z)
 
 print(X)
@@ -172,9 +106,8 @@ for j in range(len(X[0])):
     plt.plot(X[j,i], Y[j,i], "+", c=cols[j * len(X[0]) + i], mew=2, ms=8)
 
 
-tx1d = ty1d = np.linspace(min(x1d)+0.5, max(x1d)-0.5, 300)
-
-tX, tY = np.meshgrid(tx1d, ty1d)
+targetspc = np.linspace(min(space)+0.5, max(space)-0.5, 4)
+tX, tY = np.meshgrid(targetspc, targetspc)
 
 bmap = bilinear_map(X, Y, tX, tY)
 print("--- BMAP: ---")
@@ -182,7 +115,7 @@ print(bmap)
 print("-------------")
 
 print("Z:",z)
-zmapped = bmap * z
+zmapped = np.matmul(bmap, z)
 #zmapped = get_z(wave, tX, tY)
 print(zmapped)
 colsz = cmap(zmapped)
@@ -195,12 +128,8 @@ for j in range(len(tX[0])):
     ii += 1
 """
 
-plt.pcolormesh(tX, tY, twoD(zmapped, (len(tX), len(tX[0]))), cmap="plasma", vmin=0, vmax=1, zorder=10)
+plt.pcolormesh(tX, tY, twoD(zmapped, (len(tX), len(tX[0]))), cmap="plasma", vmin=0, vmax=1)
 
 plt.gca().set_aspect("equal")
 plt.show()
 
-#(x1d, y1d, zs, tX1d, tY1d, tX, tY, tZ)
-compare_with_control(x1d, y1d, z, tx1d, ty1d, tX, tY, zmapped)
-#(func, tX1d, tY1d, tX, tY, tZ)
-compare_with_real(F, tx1d, ty1d, tX, tY, zmapped)
