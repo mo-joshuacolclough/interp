@@ -66,13 +66,14 @@ def compare_with_control(x1d, y1d, zs, tX1d, tY1d, tX, tY, tZ):
   cont = interp2d(x1d, y1d, zs)
   Zcontrol = cont(tX1d, tY1d)
 
-  plt.pcolormesh(tX, tY, Zcontrol, cmap="plasma", vmin=0, vmax=1, zorder=10)
+  # NOTE: Scipy treats function other way around; i, j not j, i
+  plt.pcolormesh(tY, tX, Zcontrol, cmap="plasma", vmin=0, vmax=1, zorder=10)
   plt.title("CONTROL")
   plt.gca().set_aspect("equal")
   plt.show()
 
   tZ2d = twoD(zmapped, (len(tX), len(tX[0])))
-  diff = Zcontrol - tZ2d
+  diff = Zcontrol - tZ2d.T
 
   plt.pcolormesh(tX, tY, diff, cmap="plasma", zorder=10)
   plt.colorbar()
@@ -133,11 +134,14 @@ def twoD(oneD, shape):
 
 
 def sink(x, y):
-  return x*x + y*y
+  xtmp = x - 2
+  ytmp = y - 2
+  v = abs(xtmp * 2) * abs(ytmp * 2)
+  return v # np.sqrt(xtmp*xtmp + ytmp*ytmp)
 
 def wave(x, y):
-  Wfac = 6
-  return (np.sin(x * Wfac) * np.sin(y * Wfac) + 1)/2
+  Wfac = 2
+  return (np.sin(y * x * x * Wfac) * np.sin(y * Wfac) + 1)/2
 
 def waveplus(x, y):
   Wfac = 6
@@ -147,6 +151,35 @@ def ripple(x, y):
   rsqrd = x*x + y*y
   return np.exp(-np.sqrt(rsqrd)/2) * (np.cos(rsqrd * 2) + 1) / 2
 
+def square_ripple(x, y):
+  SER = 3
+  rsqrd = x*x + y*y
+  r = np.sqrt(rsqrd)**3.14159
+  decay = 1 # np.exp(-np.sqrt(rsqrd)/2)
+  
+  z = 0
+  for k in range(1, SER+1):
+    kk = 2 * k - 1
+    z += (1/kk) * np.sin(2 * np.pi * kk * r)
+
+  z *= 4.0/np.pi
+  z = (z + 1)/2
+
+  return decay * z
+
+def checkers(x, y):
+  SER = 10
+  decay = 1 # np.exp(-np.sqrt(rsqrd)/2)
+  
+  z = 0
+  for k in range(1, SER+1):
+    kk = 2 * k - 1
+    z += (1/kk) * np.sin(2 * np.pi * kk * x) * np.sin(2 * np.pi * kk * y)
+
+  z *= 4.0/np.pi
+  z = (z + 1)/2
+
+  return decay * z
 
 RESOLUTION = 0.05
 x1d = y1d = np.arange(0, 4, RESOLUTION)
@@ -154,7 +187,7 @@ X, Y = np.meshgrid(x1d, y1d)
 
 cmap = plt.get_cmap("plasma")
 
-F = ripple
+F = checkers
 Z = F(X, Y)
 plt.pcolormesh(X, Y, Z, cmap="plasma", vmin=0.0, vmax=1.0)
 plt.gca().set_aspect("equal")
